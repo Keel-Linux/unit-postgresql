@@ -1,0 +1,31 @@
+unit-postgresql-1.0.0 (1) keel; urgency=low
+
+  * The PostgreSQL component, extracted from the shared tree as a fab unit
+    (decision 0010): the overlay of overlays/pgsql and the conf script of
+    conf/pgsql, consumed through unit.d by every recipe that carries a
+    PostgreSQL server. The package names, which the shared tree left in each
+    recipe because it had no plans/turnkey/pgsql, are the component's plan
+    now.
+
+  * The cluster is told to listen on '::1,127.0.0.1', two literal addresses,
+    which keel-postgresql's conf.d/main did until today. It moves here
+    because binding is what whoever installs the server decides, and LAPP
+    will carry this component without carrying that recipe. Debian's default,
+    listen_addresses = 'localhost', binds the IPv4 loopback only: /etc/hosts
+    maps ::1 to ip6-localhost and ip6-loopback and never to localhost, so an
+    appliance reaching its own database over IPv6 found nothing listening.
+    The conf script checks the file after writing it, and keel-postgresql
+    keeps its own check on the built image, so the component is verified by
+    the recipe rather than trusted.
+
+  * PGSQL_PASS is named in conf-vars, the slot fab gained tonight for exactly
+    this: a unit whose conf script reads a build time variable. Without it
+    the variable would be dropped from the chroot environment, because
+    _CONF_VARS is settled before any unit is looked at.
+
+  * Two directory roots in the conf script, PG_LIB_DIR and PG_CONF_ROOT, are
+    overridable defaults so the script can be run against scratch directories
+    and measured. A build sets neither. The script does not ship: fab copies
+    it into the chroot, runs it and removes it.
+
+ -- Keel Linux maintainers <admin@keellinux.org>  Sun, 27 Sep 2026 11:00:00 +0000

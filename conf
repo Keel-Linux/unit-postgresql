@@ -1,0 +1,68 @@
+#!/bin/sh -ex
+# Build time configuration of the PostgreSQL component, run by fab inside the
+# chroot after the overlay is applied (share/product.mk, "run the unit
+# configuration scripts"). It runs once per image: a layer built on a parent
+# that already carries this unit does not run it again, which is what
+# bt-layer's units field in the layer manifest is for.
+#
+# Extracted from conf/pgsql of the shared tree. Two changes, both named in the
+# changelog: the two directory roots below are overridable defaults so the
+# script can be run against scratch directories and measured (decision 0004),
+# and the cluster is told which addresses to listen on, which keel-postgresql
+# used to do and which belongs to whoever installs the server, because LAPP
+# will carry this component and needs the same thing.
+#
+# PGSQL_PASS is named in conf-vars, which is how a unit asks fab for a build
+# time variable.
+
+PG_LIB_DIR="${PG_LIB_DIR:-/usr/lib/postgresql}"
+PG_CONF_ROOT="${PG_CONF_ROOT:-/etc/postgresql}"
+
+set ${PGSQL_PASS:=postgres}
+
+PGSQL_VER=$(ls $PG_LIB_DIR/)
+CONF_DIR=$PG_CONF_ROOT/${PGSQL_VER}/main
+
+# Recreate postgres and templates using UTF-8
+pg_dropcluster --stop ${PGSQL_VER} main || true
+pg_createcluster -e UTF-8 ${PGSQL_VER} main
+systemctl start postgresql
+
+# Enable password encryption
+sed -i "/^#password_encryption = on/ s/#//" $CONF_DIR/postgresql.conf
+
+# Reduce shared_buffers (better than increasing /proc/sys/kernel/shmmax)
+sed -i "/^shared_buffers =/ s/32/24/" $CONF_DIR/postgresql.conf
+
+# The cluster listens on the loopback of both families and nowhere else, and
+# both are named as literal addresses.
+#
+# Debian's default is listen_addresses = 'localhost', which was taken for "the
+# loopback of both families" and is not. Debian's /etc/hosts maps ::1 to
+# ip6-localhost and ip6-loopback and never to localhost, so
+# getaddrinfo("localhost") answers 127.0.0.1 alone and the cluster binds the
+# IPv4 loopback only. Measured on a booted layer: "LISTEN 127.0.0.1:5432" and
+# nothing on [::1]:5432, with ::1 up on lo and pg_hba.conf already holding its
+# scram-sha-256 line for ::1/128. An appliance reaching its database over
+# IPv6, which is the default this project builds for, found nothing listening.
+#
+# Two literal addresses cannot resolve into something else, which is the whole
+# point of writing them out. What they bind to is then proved on the booted
+# machine by the appliance's boot test rather than assumed here.
+sed -i "s|^#\?listen_addresses = .*|listen_addresses = '::1,127.0.0.1'\t\t# set by the postgresql component: see the comment in its conf script|" \
+    $CONF_DIR/postgresql.conf
+grep -qE "^listen_addresses = '::1,127\.0\.0\.1'" $CONF_DIR/postgresql.conf
+
+# Reload config after changes
+systemctl restart postgresql
+
+# Configure postgres password
+su postgres -c 'psql postgres' << EOF
+alter user postgres with encrypted password '$PGSQL_PASS';
+EOF
+
+# give user root superuser privileges over postgres
+su postgres -c "createuser --superuser root"
+su postgres -c "createdb root"
+
+systemctl stop postgresql
