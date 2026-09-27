@@ -1,0 +1,13 @@
+/* The PostgreSQL component, resolved together with the recipe's own plan
+   (share/product.mk, root.spec). The shared tree had no plans/turnkey/pgsql:
+   mk/turnkey/pgsql.mk brought the overlay and the conf script, and the
+   package names lived in each recipe. They belong with the component, so
+   this is where they are now.
+
+   postgresql is the server as Debian 13 ships it; webmin-postgresql is the
+   module that puts the database in the Webmin panel core already carries. A
+   client is not here on purpose: a recipe that talks to its own database
+   asks for one, and keel-postgresql does. */
+
+postgresql
+webmin-postgresql
