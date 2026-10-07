@@ -19,7 +19,7 @@ permissions:
 
 jobs:
   tests:
-    # COVERAGE.md: the conf script at 100 percent (17/17), 23 bats tests.
+    # COVERAGE.md: the conf script at 100 percent (15/15), 22 bats tests.
     # The threshold is the measured number and is only ever raised
     # (decision 0006). This job produces the check
     # "tests / coverage", the required status on main; the job id is part of

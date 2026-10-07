@@ -2,7 +2,7 @@ unit-postgresql
 ===============
 
 The PostgreSQL component of Keel Linux, as a fab unit: a directory carrying a
-``plan``, an ``overlay/``, an executable ``conf`` and a ``conf-vars``, which
+``plan``, an ``overlay/`` and an executable ``conf``, which
 fab resolves and applies when the recipe being built has it under ``unit.d/``
 (``UNIT_DIRS`` in ``share/product.mk``). Compatible with TurnKey Linux
 appliances: this is the PostgreSQL half of ``turnkeylinux/common``, taken out
@@ -34,9 +34,8 @@ File                    Origin in the shared tree
                         recipe because it had no ``plans/turnkey/pgsql``
 ``overlay/``            ``overlays/pgsql`` (2 files, byte identical)
 ``conf``                ``conf/pgsql``, plus the bind addresses, plus two
-                        overridable directory roots
-``conf-vars``           ``CONF_VARS += PGSQL_PASS`` of
-                        ``mk/turnkey/pgsql.mk``
+                        overridable directory roots, minus the build time
+                        password (1.0.1)
 ``version``             the pin ``bt-layer`` records in the layer manifest
 ======================  =====================================================
 
@@ -95,8 +94,19 @@ fab applies every unit overlay, then every unit conf script, then every unit
 removelist, after the common overlays, conf scripts and patches and before the
 common removelists, the product overlay and the product's own ``conf.d``. So
 this conf script runs before the recipe's, which is what lets
-``keel-postgresql`` remove the ``postgres`` role's password afterwards and
-check the bind addresses this script wrote.
+``keel-postgresql`` check the bind addresses this script wrote.
+
+No build time password
+----------------------
+
+The script sets no password for any role. ``conf/pgsql`` of the shared tree
+gave the ``postgres`` role ``${PGSQL_PASS:=postgres}``, so a layer built with
+nothing declared carried a known superuser password into every appliance built
+on it. The cluster is created fresh, so the role has no password and
+authenticates nothing over TCP until ``firstboot.d/35pgsqlpass`` sets the real
+one from ``DB_PASS``. ``tests/unit.bats`` fails when any conf script of this
+unit sets a database password, and the component reads no build time variable,
+so there is no ``conf-vars``.
 
 Not measured here
 -----------------

@@ -24,15 +24,28 @@ setup() {
     grep -qx 'webmin-postgresql' "$unit/plan"
 }
 
-@test "conf-vars names PGSQL_PASS and nothing fab would refuse" {
-    run bash -c "sed 's/#.*//' '$unit/conf-vars' | grep -v '^[[:space:]]*\$'"
-    [ "$output" = "PGSQL_PASS" ]
-    grep -qx 'PGSQL_PASS' <<< "$output"
-    [[ "$output" =~ ^[A-Za-z_][A-Za-z0-9_]*$ ]]
+@test "no conf-vars: the component reads no build time variable" {
+    # PGSQL_PASS was the only one, and it was a password.
+    [ ! -e "$unit/conf-vars" ]
 }
 
-@test "the conf script reads every variable conf-vars names" {
-    grep -q 'PGSQL_PASS' "$unit/conf"
+@test "no conf script sets a database password at build time" {
+    # A layer is fetched by name and reused, so a password set while it is
+    # built is the same known password on every appliance built from it.
+    # firstboot.d/35pgsqlpass sets the real one from DB_PASS. Every file fab
+    # runs in the chroot is checked, conf and conf.d/* should one appear,
+    # with comments left out so the reason can still be written down. The
+    # pattern is any way a shell script gives a database account a
+    # password: SQL's PASSWORD '...' and IDENTIFIED BY, psql's \password,
+    # chpasswd, mysqladmin password, and the variables that carried one.
+    local scripts=("$unit/conf") script hits=""
+    if [ -d "$unit/conf.d" ]; then scripts+=("$unit"/conf.d/*); fi
+    for script in "${scripts[@]}"; do
+        hits+=$(sed 's/^[[:space:]]*#.*//' "$script" | grep -Ein \
+            "password[[:space:]]+(E?'|\"|\\$|null)|identified[[:space:]]+(by|via|with)|\\\\password|chpasswd|mysqladmin.*password|[A-Z_]*_PASS\\b" \
+            | sed "s|^|${script#"$unit/"}:|")
+    done
+    [ -z "$hits" ] || { echo "$hits"; false; }
 }
 
 @test "the version is one line a layer manifest can carry" {
