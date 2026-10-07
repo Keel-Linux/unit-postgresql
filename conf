@@ -5,20 +5,24 @@
 # that already carries this unit does not run it again, which is what
 # bt-layer's units field in the layer manifest is for.
 #
-# Extracted from conf/pgsql of the shared tree. Two changes, both named in the
+# Extracted from conf/pgsql of the shared tree. Three changes, all named in the
 # changelog: the two directory roots below are overridable defaults so the
 # script can be run against scratch directories and measured (decision 0004),
 # and the cluster is told which addresses to listen on, which keel-postgresql
 # used to do and which belongs to whoever installs the server, because LAPP
-# will carry this component and needs the same thing.
+# will carry this component and needs the same thing. The third is below.
 #
-# PGSQL_PASS is named in conf-vars, which is how a unit asks fab for a build
-# time variable.
+# No password is set here, for any role. The shared tree's script gave the
+# postgres role ${PGSQL_PASS:=postgres}, so a build that named nothing
+# published a layer whose superuser password was 'postgres', and a layer is
+# fetched by name and reused: every appliance built on it would carry the same
+# known password, and one whose first boot failed would keep it. The cluster
+# is created fresh below, so the role has no password and authenticates
+# nothing over TCP until firstboot.d/35pgsqlpass sets the real one from
+# DB_PASS. tests/unit.bats fails if a password setting comes back.
 
 PG_LIB_DIR="${PG_LIB_DIR:-/usr/lib/postgresql}"
 PG_CONF_ROOT="${PG_CONF_ROOT:-/etc/postgresql}"
-
-set ${PGSQL_PASS:=postgres}
 
 PGSQL_VER=$(ls $PG_LIB_DIR/)
 CONF_DIR=$PG_CONF_ROOT/${PGSQL_VER}/main
@@ -55,11 +59,6 @@ grep -qE "^listen_addresses = '::1,127\.0\.0\.1'" $CONF_DIR/postgresql.conf
 
 # Reload config after changes
 systemctl restart postgresql
-
-# Configure postgres password
-su postgres -c 'psql postgres' << EOF
-alter user postgres with encrypted password '$PGSQL_PASS';
-EOF
 
 # give user root superuser privileges over postgres
 su postgres -c "createuser --superuser root"

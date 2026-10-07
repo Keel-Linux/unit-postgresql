@@ -120,16 +120,22 @@ while [ $# -gt 0 ]; do case $1 in -c) shift; exec sh -c "$1" ;; esac; shift; don
     grep -qx 'shared_buffers = 24MB' "$conf"
 }
 
-@test "the postgres role gets the password the build declared" {
-    PGSQL_PASS=declared-at-build run bash -e "$unit/conf"
-    [ "$status" -eq 0 ]
-    grep -q "alter user postgres with encrypted password 'declared-at-build'" "$SQL"
-}
-
-@test "with no PGSQL_PASS the upstream default is used, which the recipe then removes" {
+@test "the postgres role gets no password at build time" {
     run bash -e "$unit/conf"
     [ "$status" -eq 0 ]
-    grep -q "alter user postgres with encrypted password 'postgres'" "$SQL"
+    run grep -i 'password' "$SQL"
+    [ "$status" -eq 1 ]
+    run grep -x 'psql.*' "$CALLS"
+    [ "$status" -eq 1 ]
+}
+
+@test "a PGSQL_PASS in the build environment is not given to any role" {
+    PGSQL_PASS=declared-at-build run bash -e "$unit/conf"
+    [ "$status" -eq 0 ]
+    run grep -i 'password' "$SQL"
+    [ "$status" -eq 1 ]
+    run grep -r 'declared-at-build' "$scratch/sql" "$CALLS" "$PG_CONF_ROOT"
+    [ "$status" -eq 1 ]
 }
 
 @test "root gets a superuser role and a database of its own" {
@@ -147,10 +153,4 @@ while [ $# -gt 0 ]; do case $1 in -c) shift; exec sh -c "$1" ;; esac; shift; don
     [ "${lines[1]#*:}" = "systemctl restart postgresql" ]
     [ "${lines[2]#*:}" = "systemctl stop postgresql" ]
     [ "${#lines[@]}" -eq 3 ]
-}
-
-@test "a cluster that refuses the password change stops the script" {
-    PSQL_FAIL=1 run bash -e "$unit/conf"
-    [ "$status" -ne 0 ]
-    ! grep -qx 'createuser --superuser root' "$CALLS"
 }

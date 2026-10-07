@@ -1,3 +1,28 @@
+unit-postgresql-1.0.1 (1) keel; urgency=low
+
+  * The conf script sets no password for any role. It opened with
+    "set ${PGSQL_PASS:=postgres}" and gave the postgres role that value, so
+    a build that declared nothing published a layer whose database
+    superuser password was 'postgres', and a layer is fetched by name and
+    reused: every appliance built on it carried the same known password,
+    and one whose first boot hook failed kept it. Until now only
+    keel-postgresql's conf.d/main took it away again, which every other
+    recipe carrying this component would have had to remember. It is
+    removed at the source. The cluster is created fresh, so the role has no
+    password and authenticates nothing over TCP until
+    firstboot.d/35pgsqlpass sets the real one from DB_PASS.
+
+  * conf-vars is gone: PGSQL_PASS was the only variable it named and
+    nothing reads it now.
+
+  * tests/unit.bats fails when any conf script of the unit sets a database
+    password at build time (SQL PASSWORD and IDENTIFIED BY, psql's
+    \password, chpasswd, mysqladmin password, or a *_PASS variable), and
+    tests/conf.bats runs the script with PGSQL_PASS in its environment and
+    proves no role receives it.
+
+ -- Marcos Mendez <mendez.foto@gmail.com>  Wed, 07 Oct 2026 12:00:00 +0000
+
 unit-postgresql-1.0.0 (1) keel; urgency=low
 
   * The PostgreSQL component, extracted from the shared tree as a fab unit

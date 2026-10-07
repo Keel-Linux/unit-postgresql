@@ -6,22 +6,22 @@ component is the layer that consumes it: `keel-postgresql` builds it, boots it
 in LXC and proves the database answers on `::1`, which is why this repository
 carries no boot test of its own.
 
-## Measured 2026-09-27
+## Measured 2026-10-07
 
 | File | Test | Lines | Note |
 | --- | --- | --- | --- |
-| conf | tests/conf.bats (14 tests) | 100 percent (17/17) under kcov | every line and every failure path: the cluster recreated as UTF-8, a cluster that was not there, one that cannot be created, password encryption, shared_buffers, the bind addresses in three shapes, a file with no listen_addresses line at all, the declared password and the upstream default, root's role and database, the start, restart and stop, and a cluster that refuses the password change |
+| conf | tests/conf.bats (13 tests) | 100 percent (15/15) under kcov | every line and every failure path: the cluster recreated as UTF-8, a cluster that was not there, one that cannot be created, password encryption, shared_buffers, the bind addresses in three shapes, a file with no listen_addresses line at all, no password for any role whether or not the build environment carries PGSQL_PASS, root's role and database, and the start, restart and stop |
 | overlay/usr/lib/inithooks/firstboot.d/35pgsqlpass | none | 0 | see below |
 | overlay/usr/lib/inithooks/bin/pgsqlconf.py | none | 0 | see below |
 
-Total: **100 percent (17/17)**, 23 bats tests over two files (the conf script
+Total: **100 percent (15/15)**, 22 bats tests over two files (the conf script
 and the shape of the unit). `tests/coverage.sh` fails below
 `COVERAGE_THRESHOLD`, which the workflow sets to 100, the measured number. It
 is only ever raised (decision 0006).
 
     $ COVERAGE_THRESHOLD=100 tests/coverage.sh
     kcov line coverage (threshold 100 percent):
-     100.00  17/17  conf
+     100.00  15/15  conf
 
 The conf script is POSIX shell with the shebang `#!/bin/sh -ex`, and the tests
 run it as `bash -e`: kcov measures bash and cannot see inside dash, and a
