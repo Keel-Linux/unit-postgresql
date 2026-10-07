@@ -1,0 +1,3 @@
+# Security scan baseline (keel-linux/.github, security-scan.yml): findings
+# that were read and are not a risk, one per line, the fingerprint and why.
+shellcheck:SC1090:overlay/usr/lib/inithooks/firstboot.d/35pgsqlpass:c57db62f520d shell lint, not a security risk: a sourced file whose path is computed, shellcheck cannot follow it
